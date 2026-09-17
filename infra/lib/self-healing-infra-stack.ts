@@ -3,6 +3,8 @@ import { Construct } from "constructs";
 import { createTables } from "./tables";
 import { createLambdas } from "./lambdas";
 import { createApi } from "./api-gateway";
+import { createIncidentResponseStateMachine } from "./step-functions";
+import { createInventoryAlarmAndRule } from "./alarms";
 
 export class SelfHealingInfraStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -11,5 +13,12 @@ export class SelfHealingInfraStack extends Stack {
     const tables = createTables(this);
     const lambdas = createLambdas(this, tables);
     createApi(this, lambdas.gatewayFn);
+
+    const stateMachine = createIncidentResponseStateMachine(this, {
+      createIncidentFn: lambdas.createIncidentFn,
+      buildGraphFn: lambdas.buildGraphFn,
+      localizeFn: lambdas.localizeFn,
+    });
+    createInventoryAlarmAndRule(this, lambdas.inventoryFn, stateMachine);
   }
 }

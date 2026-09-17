@@ -11,4 +11,6 @@ export const env = {
   ordersFunctionUrl: process.env.ORDERS_FUNCTION_URL ?? "",
   inventoryFunctionUrl: process.env.INVENTORY_FUNCTION_URL ?? "",
   injectFault: process.env.INJECT_FAULT === "true",
+  faultProbability: Number(process.env.FAULT_PROBABILITY ?? "0.3"),
+  faultMode: (process.env.FAULT_MODE ?? "error") as "error" | "latency",
 };

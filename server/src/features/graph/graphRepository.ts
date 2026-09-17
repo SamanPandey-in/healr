@@ -1,4 +1,4 @@
-import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../shared/aws/dynamoClient";
 import { env } from "../../config/env";
 import { GraphEdge, ServiceName } from "@shi/shared-types";
@@ -16,17 +16,11 @@ export async function upsertEdge(edge: GraphEdge): Promise<void> {
   );
 }
 
-export async function getOutboundEdges(service: ServiceName): Promise<GraphEdge[]> {
-  const res = await ddb.send(
-    new QueryCommand({
-      TableName: env.serviceGraphTable,
-      KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
-      ExpressionAttributeValues: { ":pk": `SERVICE#${service}`, ":prefix": "EDGE#" },
-    })
-  );
+export async function getAllEdges(): Promise<GraphEdge[]> {
+  const res = await ddb.send(new ScanCommand({ TableName: env.serviceGraphTable }));
   return (res.Items ?? []).map((i) => ({
-    from: service,
-    to: i.SK.replace("EDGE#", "") as ServiceName,
+    from: (i.PK as string).replace("SERVICE#", "") as ServiceName,
+    to: (i.SK as string).replace("EDGE#", "") as ServiceName,
     lastSeenAt: i.lastSeenAt,
   }));
 }

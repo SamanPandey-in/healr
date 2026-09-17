@@ -698,12 +698,12 @@ npx cdk deploy
 - [x] Implement `graph` repository only, no build logic yet (§9)
 - [x] Write CDK stack: tables, lambdas with `Tracing.ACTIVE`, API Gateway with `tracingEnabled: true` (§10)
 - [x] `cdk bootstrap` (once) → `cdk deploy`
-- [ ] Manually invoke the deploy-events webhook once per service to seed real `DeployEvents` rows (§8)
-- [ ] Manually call `upsertEdge` twice to seed `gateway→orders` and `orders→inventory` (§9)
-- [ ] Hit the API Gateway `/orders` endpoint with `curl` and a JSON body matching `OrderRequest`
-- [ ] Open the X-Ray console → confirm a 3-segment trace (`gateway → orders → inventory`) for that request
-- [ ] Confirm all three `DynamoDB` tables exist and are queryable in the console
-- [ ] Commit with a message that says what got proven, not just what got written — e.g. `Day 1: gateway→orders→inventory chain deployed, X-Ray trace confirmed end-to-end`
+- [x] Manually invoke the deploy-events webhook once per service to seed real `DeployEvents` rows (§8)
+- [x] Manually call `upsertEdge` twice to seed `gateway→orders` and `orders→inventory` (§9)
+- [x] Hit the API Gateway `/orders` endpoint with `curl` and a JSON body matching `OrderRequest`
+- [x] Open the X-Ray console → confirm a 3-segment trace (`gateway → orders → inventory`) for that request
+- [x] Confirm all three `DynamoDB` tables exist and are queryable in the console
+- [x] Commit with a message that says what got proven, not just what got written — e.g. `Day 1: gateway→orders→inventory chain deployed, X-Ray trace confirmed end-to-end`
 
 **Definition of done (matches ROADMAP.md's Day 1 demo checkpoint):** hitting the gateway endpoint produces a successful response, and the X-Ray console shows a real 3-span trace for that request. Nothing about ranking, diagnosis, or remediation needs to exist yet.
 
@@ -721,3 +721,35 @@ Explicitly out of scope for Day 1, even if it looks like "just one more function
 - Next.js UI beyond the default scaffold
 
 If any of these feel necessary to make Day 1 "feel complete," that's scope creep — Day 1's only job is proving the infra is real and traced.
+
+## Prerequisite fix for Day 2 — propagate the X-Ray trace ID across Lambda-to-Lambda calls
+
+**Do this first.** `BuildGraph` (Section 7) only works if a single trace ID actually spans all three Lambda invocations. Right now `orders/handler.ts` and `gateway/handler.ts` call the downstream Function URL with plain `fetch()` and no trace header. The AWS X-Ray SDK only patches the AWS SDK v3 client (`captureAWSv3Client` in `xray.ts`) — it does **not** patch `fetch`/`undici`, so each downstream Lambda invocation currently starts its **own** root trace instead of continuing the caller's. If this shipped in Day 1's test, it means the "3-segment trace" you saw was probably three separate traces that happen to run back-to-back, not one causally-linked trace with subsegments. Fix it now, before writing anything that parses trace data.
+
+Add a small helper and use it in both `gateway/handler.ts` and `orders/handler.ts`:
+
+**`server/src/shared/aws/xray.ts`** — add:
+```typescript
+// Lambda sets this env var per-invocation to the trace ID the current
+// invocation belongs to. Forward it as a header so the downstream
+// Lambda's own X-Ray instrumentation joins the same trace instead of
+// minting a new root segment.
+export function traceHeaders(): Record<string, string> {
+  const traceId = process.env._X_AMZN_TRACE_ID;
+  return traceId ? { "X-Amzn-Trace-Id": traceId } : {};
+}
+```
+
+**`server/src/features/orders/handler.ts`** — update the fetch call:
+```typescript
+const res = await fetch(env.inventoryFunctionUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...traceHeaders() },
+  body: JSON.stringify({ sku: body.sku, quantity: body.quantity }),
+});
+```
+(same pattern for `gateway/handler.ts` calling `env.ordersFunctionUrl`)
+
+Redeploy (`cd infra && npx cdk deploy`), re-run the Day 1 `curl` test, and re-check the X-Ray console: you should now see **one trace** with `call-orders` and `call-inventory` subsegments that each contain a nested segment for the downstream Lambda's own execution — not two/three disconnected traces. Confirm this before moving on; every downstream section assumes it.
+
+---

@@ -3,6 +3,7 @@ import { Runtime, Tracing, FunctionUrlAuthType } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { Duration } from "aws-cdk-lib";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
 interface LambdasProps {
   serviceGraph: Table;
@@ -32,7 +33,7 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     runtime: Runtime.NODEJS_20_X,
     tracing: Tracing.ACTIVE,
     timeout: Duration.seconds(10),
-    environment: { ...commonEnv, INJECT_FAULT: "false" },
+    environment: { ...commonEnv, INJECT_FAULT: "false", FAULT_PROBABILITY: "0.3", FAULT_MODE: "error" },
     bundling: xrayBundling,
   });
 const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
@@ -64,9 +65,53 @@ const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.
     bundling: xrayBundling,
   });
 
+  const createIncidentFn = new NodejsFunction(scope, "CreateIncidentFunction", {
+    entry: "../server/src/features/incidents/createIncidentHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+
+  const buildGraphFn = new NodejsFunction(scope, "BuildGraphFunction", {
+    entry: "../server/src/features/graph/buildGraphHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    timeout: Duration.seconds(30),
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+
+  const localizeFn = new NodejsFunction(scope, "LocalizeRootCauseFunction", {
+    entry: "../server/src/features/localization/handler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+
   tables.serviceGraph.grantReadWriteData(gatewayFn);
   tables.deployEvents.grantReadWriteData(deployEventsWebhookFn);
-  tables.incidents.grantReadWriteData(gatewayFn);
+  tables.incidents.grantReadWriteData(createIncidentFn);
+  tables.incidents.grantReadWriteData(localizeFn);
+  tables.serviceGraph.grantReadWriteData(buildGraphFn);
 
-  return { gatewayFn, ordersFn, inventoryFn, deployEventsWebhookFn };
+  // BuildGraph needs X-Ray read access — grant explicitly, it's not part of
+  // any DynamoDB table's grant methods:
+  buildGraphFn.addToRolePolicy(
+    new PolicyStatement({
+      actions: ["xray:GetTraceSummaries", "xray:BatchGetTraces"],
+      resources: ["*"], // X-Ray query APIs don't support resource-level scoping
+    })
+  );
+
+  return {
+    gatewayFn,
+    ordersFn,
+    inventoryFn,
+    deployEventsWebhookFn,
+    createIncidentFn,
+    buildGraphFn,
+    localizeFn,
+  };
 }

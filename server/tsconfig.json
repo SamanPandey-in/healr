@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "paths": {
+      "@shi/shared-types": ["../packages/shared-types/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../packages/shared-types/src/**/*"
+  ]
+}

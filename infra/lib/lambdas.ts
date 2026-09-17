@@ -35,7 +35,7 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     environment: { ...commonEnv, INJECT_FAULT: "false" },
     bundling: xrayBundling,
   });
-  const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.AWS_IAM });
+const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
   const ordersFn = new NodejsFunction(scope, "OrdersFunction", {
     entry: "../server/src/features/orders/handler.ts",
@@ -45,7 +45,7 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     environment: { ...commonEnv, INVENTORY_FUNCTION_URL: inventoryUrl.url },
     bundling: xrayBundling,
   });
-  const ordersUrl = ordersFn.addFunctionUrl({ authType: FunctionUrlAuthType.AWS_IAM });
+  const ordersUrl = ordersFn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
   const gatewayFn = new NodejsFunction(scope, "GatewayFunction", {
     entry: "../server/src/features/gateway/handler.ts",

@@ -5,6 +5,11 @@ export function patchAwsSdkForTracing() {
   AWSXRay.captureAWSv3Client(new DynamoDBClient({}));
 }
 
+export function traceHeaders(): Record<string, string> {
+  const traceId = process.env._X_AMZN_TRACE_ID;
+  return traceId ? { "X-Amzn-Trace-Id": traceId } : {};
+}
+
 export async function traced<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const segment = AWSXRay.getSegment();
   const subsegment = segment?.addNewSubsegment(name);

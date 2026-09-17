@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, Context } from "aws-lambda";
-import { patchAwsSdkForTracing, traced } from "../../shared/aws/xray";
+import { patchAwsSdkForTracing, traced, traceHeaders } from "../../shared/aws/xray";
 import { ok, fail } from "../../shared/http/responses";
 import { env } from "../../config/env";
 import { OrderRequest } from "@shi/shared-types";
@@ -13,6 +13,7 @@ export async function handler(event: APIGatewayProxyEventV2, _context: Context) 
     const inventoryResult = await traced("call-inventory", async () => {
       const res = await fetch(env.inventoryFunctionUrl, {
         method: "POST",
+        headers: { "Content-Type": "application/json", ...traceHeaders() },
         body: JSON.stringify({ sku: body.sku, quantity: body.quantity }),
       });
       if (!res.ok) throw new Error(`inventory returned ${res.status}`);

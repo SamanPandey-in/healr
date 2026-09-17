@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, Context } from "aws-lambda";
-import { patchAwsSdkForTracing, traced } from "../../shared/aws/xray";
+import { patchAwsSdkForTracing, traced, traceHeaders } from "../../shared/aws/xray";
 import { ok, fail } from "../../shared/http/responses";
 import { env } from "../../config/env";
 
@@ -12,6 +12,7 @@ export async function handler(event: APIGatewayProxyEventV2, _context: Context) 
     const orderResult = await traced("call-orders", async () => {
       const res = await fetch(env.ordersFunctionUrl, {
         method: "POST",
+        headers: { "Content-Type": "application/json", ...traceHeaders() },
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`orders returned ${res.status}`);

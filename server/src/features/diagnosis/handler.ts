@@ -1,5 +1,5 @@
 import { patchAwsSdkForTracing } from "../../shared/aws/xray";
-import { converseText } from "../../shared/aws/bedrockClient";
+import { converseText } from "../../shared/llm/geminiClient";
 import { buildEvidence } from "./evidenceBuilder";
 import { buildDiagnosisSchema } from "./schema";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";

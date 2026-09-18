@@ -1,0 +1,1 @@
+{"version":3,"file":"geminiAccess.js","sourceRoot":"","sources":["../lib/geminiAccess.ts"],"names":[],"mappings":";;;;AAAA;IACE,MAAM,GAAG,GAAG,OAAO,CAAC,GAAG,CAAC,cAAc,CAAC;IACvC,IAAI,CAAC,GAAG,EAAE,CAAC;QACT,MAAM,IAAI,KAAK,CACb,8EAA8E;YAC9E,uGAAuG,CACxG,CAAC;IACJ,CAAC;IACD,OAAO,GAAG,CAAC;AACb,CAAC;AAEY,QAAA,uBAAuB,GAAG,kBAAkB,CAAC"}

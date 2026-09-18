@@ -2,15 +2,18 @@ import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Runtime, Tracing, FunctionUrlAuthType, Alias } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
-import { Duration } from "aws-cdk-lib";
+import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
-import { grantBedrockInvoke, DEFAULT_BEDROCK_MODEL_ID } from "./bedrockAccess";
+import { requireGeminiApiKey, DEFAULT_GEMINI_MODEL_ID } from "./geminiAccess";
 
 interface LambdasProps {
   serviceGraph: Table;
   deployEvents: Table;
   incidents: Table;
 }
+
+const geminiApiKey = requireGeminiApiKey();
+const geminiModelId = process.env.GEMINI_MODEL_ID ?? DEFAULT_GEMINI_MODEL_ID;
 
 export function createLambdas(scope: Construct, tables: LambdasProps) {
   const commonEnv = {
@@ -25,13 +28,16 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     runtime: Runtime.NODEJS_20_X,
     tracing: Tracing.ACTIVE,
     timeout: Duration.seconds(10),
-    environment: { ...commonEnv, INJECT_FAULT: "false", FAULT_PROBABILITY: "0.3", FAULT_MODE: "error" },
+    environment: { ...commonEnv, INJECT_FAULT: "true", FAULT_PROBABILITY: "0.3", FAULT_MODE: "error" },
     bundling: xrayBundling,
   });
 
+  const inventoryVersion = inventoryFn.currentVersion;
+  inventoryVersion.applyRemovalPolicy(RemovalPolicy.RETAIN);
+
   const inventoryAlias = new Alias(scope, "InventoryLiveAlias", {
     aliasName: "live",
-    version: inventoryFn.currentVersion,
+    version: inventoryVersion,
   });
   const inventoryUrl = inventoryAlias.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
@@ -94,10 +100,9 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     runtime: Runtime.NODEJS_20_X,
     tracing: Tracing.ACTIVE,
     timeout: Duration.seconds(60),
-    environment: { ...commonEnv, BEDROCK_MODEL_ID: DEFAULT_BEDROCK_MODEL_ID },
+    environment: { ...commonEnv, GEMINI_API_KEY: geminiApiKey, GEMINI_MODEL_ID: geminiModelId },
     bundling: xrayBundling,
   });
-  grantBedrockInvoke(scope, diagnoseFn);
 
   const approveHandlerFn = new NodejsFunction(scope, "ApproveHandlerFunction", {
     entry: "../server/src/features/approval/approveHandler.ts",

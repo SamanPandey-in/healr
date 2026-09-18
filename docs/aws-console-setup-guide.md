@@ -74,9 +74,9 @@ Check **DynamoDB → `DeployEvents` → Explore table items** — you should see
 Confirm the same request works from your terminal against the real deployed endpoint, not just the console's test harness:
 
 ```bash
-curl -X POST "<invoke-url>/orders" \
+curl -X POST "https://18uvd9zfhe.execute-api.ap-south-1.amazonaws.com/prod/orders" \
   -H "Content-Type: application/json" \
-  -d '{"orderId":"ord-1","sku":"sku-123","quantity":2}'
+  -d '{"orderId":"ord-3","sku":"sku-125","quantity":9}'
 ```
 
 ### A6. X-Ray console — confirm the real trace

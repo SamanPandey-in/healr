@@ -1,5 +1,5 @@
 import { Construct } from "constructs";
-import { Alarm, ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { Alarm, ComparisonOperator, Metric, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import { Rule, RuleTargetInput, EventField } from "aws-cdk-lib/aws-events";
 import { SfnStateMachine } from "aws-cdk-lib/aws-events-targets";
 import { StateMachine } from "aws-cdk-lib/aws-stepfunctions";
@@ -11,8 +11,18 @@ export function createInventoryAlarmAndRule(
   inventoryFn: IFunction,
   stateMachine: StateMachine
 ) {
+  // Was inventoryFn.metricErrors() — that only counts unhandled Lambda
+  // invocation failures. Our fault injection is deliberately caught inside
+  // the handler's own try/catch and returned as a normal 500 response, so
+  // it never registered there. Alarm on the custom EMF metric emitted by
+  // faultInjection.ts instead (see emitFaultMetric).
   const errorAlarm = new Alarm(scope, "InventoryErrorAlarm", {
-    metric: inventoryFn.metricErrors({ period: Duration.minutes(1) }),
+    metric: new Metric({
+      namespace: "SelfHealingInfra/Inventory",
+      metricName: "InjectedFault",
+      statistic: "Sum",
+      period: Duration.minutes(1),
+    }),
     threshold: 1,
     evaluationPeriods: 1,
     comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,

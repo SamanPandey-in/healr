@@ -95,6 +95,8 @@ const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.
   tables.incidents.grantReadWriteData(createIncidentFn);
   tables.incidents.grantReadWriteData(localizeFn);
   tables.serviceGraph.grantReadWriteData(buildGraphFn);
+  tables.serviceGraph.grantReadData(localizeFn);
+  tables.deployEvents.grantReadData(localizeFn);
 
   // BuildGraph needs X-Ray read access — grant explicitly, it's not part of
   // any DynamoDB table's grant methods:

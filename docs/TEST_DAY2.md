@@ -274,19 +274,19 @@ Send a test request to verify healthy responses return:
 
 ## 16. Summary Checklist
 
-- [ ] Three Lambda functions created (CreateIncident, BuildGraph, LocalizeRootCause)
-- [ ] Step Functions state machine `IncidentResponseDay2` exists with 3 states
-- [ ] CloudWatch alarm `InventoryErrorAlarm` created
-- [ ] EventBridge rule triggers Step Functions on ALARM state
-- [ ] Healthy requests work with fault injection OFF
-- [ ] Fault injection ON produces errors on ~30% of requests
-- [ ] Alarm transitions from OK → ALARM after errors
-- [ ] Step Functions execution reaches SUCCEEDED
-- [ ] Incident record created with SK=META (status: "localized")
-- [ ] Localization record created with SK=LOCALIZATION
-- [ ] `inventory` ranked as top root cause (distance: 0, recent deploy)
-- [ ] X-Ray trace shows single causal trace across all 3 Lambdas
-- [ ] Fault injection toggled back OFF for clean state
+- [x] Three Lambda functions created (CreateIncident, BuildGraph, LocalizeRootCause)
+- [x] Step Functions state machine `IncidentResponseDay2` exists with 3 states
+- [x] CloudWatch alarm `InventoryErrorAlarm` created
+- [x] EventBridge rule triggers Step Functions on ALARM state
+- [x] Healthy requests work with fault injection OFF
+- [x] Fault injection ON produces errors on ~30% of requests
+- [x] Alarm transitions from OK → ALARM after errors
+- [x] Step Functions execution reaches SUCCEEDED
+- [x] Incident record created with SK=META (status: "localized")
+- [x] Localization record created with SK=LOCALIZATION
+- [x] `inventory` ranked as top root cause (distance: 0, recent deploy)
+- [x] X-Ray trace shows single causal trace across all 3 Lambdas
+- [x] Fault injection toggled back OFF for clean state
 
 ## Definition of Done (matches ROADMAP.md Day 2 demo checkpoint)
 

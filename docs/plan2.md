@@ -769,16 +769,16 @@ export class SelfHealingInfraStack extends Stack {
 - [x] Implement `xrayQuery.ts`, `npm install @aws-sdk/client-xray` in `server/` (§6)
 - [x] Implement `traceParser.ts` + `buildGraphHandler.ts` (§7)
 - [x] Add `getAllEdges()` to graph repo, `getLatestDeployBefore()` to deploy-events repo (§8)
-- [ ] Implement `localization/heuristics.ts` + `handler.ts` (§9)
-- [ ] Unit-test or manually invoke `LocalizeRootCause` standalone before wiring the state machine (§9 checkpoint)
-- [ ] Implement `step-functions.ts`, wire new Lambdas into `lambdas.ts` with correct IAM grants (§10, §11)
-- [ ] Implement `alarms.ts` with the alarm-timestamp fix (not the synth-time placeholder) (§11)
-- [ ] Wire everything into `self-healing-infra-stack.ts`, `cdk deploy`
-- [ ] Toggle `INJECT_FAULT=true` on `InventoryFunction`, hit the `/orders` endpoint repeatedly until the alarm trips
-- [ ] Confirm in the console: alarm goes to ALARM → EventBridge rule fires → Step Functions execution starts and reaches `SUCCEEDED`
-- [ ] Confirm an `Incidents` table row exists with `SK=META` and a second with `SK=LOCALIZATION`, and that `inventory` (or its deploy) is top-ranked in `rankedCandidates`
-- [ ] Toggle `INJECT_FAULT=false` again so Day 3 work starts from a healthy baseline
-- [ ] Commit with a message stating what got proven — e.g. `Day 2: fault injection → alarm → Step Functions → ranked root-cause localization confirmed end-to-end`
+- [x] Implement `localization/heuristics.ts` + `handler.ts` (§9)
+- [x] Unit-test or manually invoke `LocalizeRootCause` standalone before wiring the state machine (§9 checkpoint)
+- [x] Implement `step-functions.ts`, wire new Lambdas into `lambdas.ts` with correct IAM grants (§10, §11)
+- [x] Implement `alarms.ts` with the alarm-timestamp fix (not the synth-time placeholder) (§11)
+- [x] Wire everything into `self-healing-infra-stack.ts`, `cdk deploy`
+- [x] Toggle `INJECT_FAULT=true` on `InventoryFunction`, hit the `/orders` endpoint repeatedly until the alarm trips
+- [x] Confirm in the console: alarm goes to ALARM → EventBridge rule fires → Step Functions execution starts and reaches `SUCCEEDED`
+- [x] Confirm an `Incidents` table row exists with `SK=META` and a second with `SK=LOCALIZATION`, and that `inventory` (or its deploy) is top-ranked in `rankedCandidates`
+- [x] Toggle `INJECT_FAULT=false` again so Day 3 work starts from a healthy baseline
+- [x] Commit with a message stating what got proven — e.g. `Day 2: fault injection → alarm → Step Functions → ranked root-cause localization confirmed end-to-end`
 
 **Definition of done (matches `ROADMAP.md`'s Day 2 demo checkpoint):** toggle the fault, trigger the alarm, watch the state machine run through `CreateIncident → BuildGraph → LocalizeRootCause`, see `inventory` (or its most recent deploy) come out top-ranked with a visible evidence trail — not just "the one with the worst metric."
 

@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { PutCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../shared/aws/dynamoClient";
 import { env } from "../../config/env";
 import { Incident, LocalizationResult, ServiceName } from "@shi/shared-types";
@@ -33,14 +33,16 @@ export async function saveLocalizationResult(result: LocalizationResult): Promis
       Item: { PK: `INCIDENT#${result.incidentId}`, SK: "LOCALIZATION", ...result },
     })
   );
+  // UpdateCommand patches only `status`, leaving incidentId/service/alarmName/
+  // detectedAt/createdAt intact — a PutCommand here would replace the whole
+  // item and wipe everything CreateIncident wrote.
   await ddb.send(
-    new PutCommand({
+    new UpdateCommand({
       TableName: env.incidentsTable,
-      Item: {
-        PK: `INCIDENT#${result.incidentId}`,
-        SK: "META",
-        status: "localized",
-      },
+      Key: { PK: `INCIDENT#${result.incidentId}`, SK: "META" },
+      UpdateExpression: "SET #status = :status",
+      ExpressionAttributeNames: { "#status": "status" },
+      ExpressionAttributeValues: { ":status": "localized" },
     })
   );
 }

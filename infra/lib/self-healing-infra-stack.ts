@@ -1,4 +1,4 @@
-import { Stack, StackProps } from "aws-cdk-lib";
+import { Stack, StackProps, CfnOutput } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { createTables } from "./tables";
 import { createLambdas } from "./lambdas";
@@ -18,7 +18,13 @@ export class SelfHealingInfraStack extends Stack {
       createIncidentFn: lambdas.createIncidentFn,
       buildGraphFn: lambdas.buildGraphFn,
       localizeFn: lambdas.localizeFn,
+      diagnoseFn: lambdas.diagnoseFn,
+      requestApprovalFn: lambdas.requestApprovalFn,
+      remediateFn: lambdas.remediateFn,
+      verifyOutcomeFn: lambdas.verifyOutcomeFn,
     });
     createInventoryAlarmAndRule(this, lambdas.inventoryFn, stateMachine);
+
+    new CfnOutput(this, "ApproveFunctionUrl", { value: lambdas.approveHandlerUrl });
   }
 }

@@ -1,9 +1,10 @@
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { Runtime, Tracing, FunctionUrlAuthType } from "aws-cdk-lib/aws-lambda";
+import { Runtime, Tracing, FunctionUrlAuthType, Alias } from "aws-cdk-lib/aws-lambda";
 import { Construct } from "constructs";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { Duration } from "aws-cdk-lib";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { grantBedrockInvoke, DEFAULT_BEDROCK_MODEL_ID } from "./bedrockAccess";
 
 interface LambdasProps {
   serviceGraph: Table;
@@ -17,15 +18,6 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     DEPLOY_EVENTS_TABLE: tables.deployEvents.tableName,
     INCIDENTS_TABLE: tables.incidents.tableName,
   };
-
-  // aws-xray-sdk-core's captureAWSv3Client() reaches into @smithy/* internals via
-  // dynamic require() calls that esbuild can't statically resolve. Left to the
-  // default bundling behavior, those @smithy packages end up neither bundled nor
-  // provided by the runtime, which is what throws
-  // "Cannot find module '@smithy/service-error-classification'" at cold start.
-  // Forcing aws-xray-sdk-core to be npm-installed (with its full dep tree) instead
-  // of esbuild-bundled fixes it. Every function below calls patchAwsSdkForTracing(),
-  // so every one needs this.
   const xrayBundling = { nodeModules: ["aws-xray-sdk-core"] };
 
   const inventoryFn = new NodejsFunction(scope, "InventoryFunction", {
@@ -36,7 +28,12 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     environment: { ...commonEnv, INJECT_FAULT: "false", FAULT_PROBABILITY: "0.3", FAULT_MODE: "error" },
     bundling: xrayBundling,
   });
-const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
+
+  const inventoryAlias = new Alias(scope, "InventoryLiveAlias", {
+    aliasName: "live",
+    version: inventoryFn.currentVersion,
+  });
+  const inventoryUrl = inventoryAlias.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
   const ordersFn = new NodejsFunction(scope, "OrdersFunction", {
     entry: "../server/src/features/orders/handler.ts",
@@ -90,6 +87,69 @@ const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.
     bundling: xrayBundling,
   });
 
+  // ---------------------------------------------------------------- Day 3
+
+  const diagnoseFn = new NodejsFunction(scope, "DiagnoseWithBedrockFunction", {
+    entry: "../server/src/features/diagnosis/handler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    timeout: Duration.seconds(60),
+    environment: { ...commonEnv, BEDROCK_MODEL_ID: DEFAULT_BEDROCK_MODEL_ID },
+    bundling: xrayBundling,
+  });
+  grantBedrockInvoke(scope, diagnoseFn);
+
+  const approveHandlerFn = new NodejsFunction(scope, "ApproveHandlerFunction", {
+    entry: "../server/src/features/approval/approveHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+  const approveHandlerUrl = approveHandlerFn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
+  approveHandlerFn.addToRolePolicy(new PolicyStatement({
+    actions: ["states:SendTaskSuccess", "states:SendTaskFailure"],
+    resources: ["*"],
+  }));
+
+  const requestApprovalFn = new NodejsFunction(scope, "RequestApprovalFunction", {
+    entry: "../server/src/features/approval/requestApprovalHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: { ...commonEnv, APPROVE_FUNCTION_URL: approveHandlerUrl.url },
+    bundling: xrayBundling,
+  });
+
+  const remediateFn = new NodejsFunction(scope, "RemediateFunction", {
+    entry: "../server/src/features/remediation/handler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: {
+      ...commonEnv,
+      INVENTORY_FUNCTION_NAME: inventoryFn.functionName,
+      INVENTORY_ALIAS_NAME: inventoryAlias.aliasName,
+    },
+    bundling: xrayBundling,
+  });
+  remediateFn.addToRolePolicy(new PolicyStatement({
+    actions: ["lambda:GetAlias", "lambda:UpdateAlias", "lambda:ListVersionsByFunction"],
+    resources: [inventoryFn.functionArn, `${inventoryFn.functionArn}:*`],
+  }));
+
+  const verifyOutcomeFn = new NodejsFunction(scope, "VerifyOutcomeFunction", {
+    entry: "../server/src/features/verification/handler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+  verifyOutcomeFn.addToRolePolicy(new PolicyStatement({
+    actions: ["cloudwatch:GetMetricData"],
+    resources: ["*"],
+  }));
+
+  // ---------------------------------------------------------- grants
+
   tables.serviceGraph.grantReadWriteData(gatewayFn);
   tables.deployEvents.grantReadWriteData(deployEventsWebhookFn);
   tables.incidents.grantReadWriteData(createIncidentFn);
@@ -97,23 +157,21 @@ const inventoryUrl = inventoryFn.addFunctionUrl({ authType: FunctionUrlAuthType.
   tables.serviceGraph.grantReadWriteData(buildGraphFn);
   tables.serviceGraph.grantReadData(localizeFn);
   tables.deployEvents.grantReadData(localizeFn);
+  tables.incidents.grantReadWriteData(diagnoseFn);
+  tables.incidents.grantReadWriteData(requestApprovalFn);
+  tables.incidents.grantReadWriteData(approveHandlerFn);
+  tables.incidents.grantReadWriteData(remediateFn);
+  tables.incidents.grantReadWriteData(verifyOutcomeFn);
 
-  // BuildGraph needs X-Ray read access — grant explicitly, it's not part of
-  // any DynamoDB table's grant methods:
-  buildGraphFn.addToRolePolicy(
-    new PolicyStatement({
-      actions: ["xray:GetTraceSummaries", "xray:BatchGetTraces"],
-      resources: ["*"], // X-Ray query APIs don't support resource-level scoping
-    })
-  );
+  buildGraphFn.addToRolePolicy(new PolicyStatement({
+    actions: ["xray:GetTraceSummaries", "xray:BatchGetTraces"],
+    resources: ["*"],
+  }));
 
   return {
-    gatewayFn,
-    ordersFn,
-    inventoryFn,
-    deployEventsWebhookFn,
-    createIncidentFn,
-    buildGraphFn,
-    localizeFn,
+    gatewayFn, ordersFn, inventoryFn, deployEventsWebhookFn,
+    createIncidentFn, buildGraphFn, localizeFn,
+    diagnoseFn, requestApprovalFn, approveHandlerFn, remediateFn, verifyOutcomeFn,
+    approveHandlerUrl: approveHandlerUrl.url,
   };
 }

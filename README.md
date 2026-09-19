@@ -2,6 +2,8 @@
 
 Built by [Saman Pandey](https://github.com/SamanPandey-in) & [Shreyash Singh](https://github.com/ShreyashSingh857).
 
+[Demo Video](https://drive.google.com/file/d/1VHS0kWNI7GKd0w05FrfJPJ36SGzFteLh/view?usp=sharing)
+
 ## The problem
 
 I run production infra for freelance clients through [Dreamer](https://github.com/SamanPandey-in/dreamer), a self-hosted deployment platform I built. When something breaks, the first 15–20 minutes of any incident aren't spent fixing anything, instead they're spent figuring out *which* service actually caused the problem, not just which one is currently on fire. A downstream service erroring is usually a symptom; the real cause is often an upstream deploy that happened minutes earlier. That gap between "something's broken" and "I know what broke it and why" is where outages get expensive, and it's a manual, repetitive process every time.
@@ -27,7 +29,7 @@ A 3-service demo system (`gateway` → `orders` → `inventory`) running on Lamb
 
 A Next.js dashboard shows the live service graph, the open incident, the diagnosis with its citations, and the approval control.
 
-## Basic HLD
+## Client-side HLD
 
 ```mermaid
 flowchart LR
@@ -38,6 +40,10 @@ flowchart LR
 ```
 
 Traffic flows left to right under normal conditions. The moment an anomaly trips the alarm, control passes to the Step Functions pipeline, which is the whole point of the project — everything to its left is just the system being watched; everything at and after it is the actual "self-healing" behavior.
+
+## Architecture Diagram: 
+
+![Architecure Diagram](docs/arch.svg)
 
 ## Impact
 
@@ -51,4 +57,6 @@ Lambda, API Gateway, DynamoDB, AWS X-Ray, CloudWatch (metrics, logs, alarms), Ev
 
 ## What's next
 
-The localization heuristic here is an honest MVP — topology-constrained temporal precedence, not a true causal-discovery algorithm. The natural next step is a PC-algorithm-style constrained search over the same graph, plus a broader fault-type matrix beyond the single induced-latency case this demo covers.
+A npm package with the infra packed for anyone to inject into their codebase and infra on AWS.
+
+The localization heuristic here is an honest MVP — topology-constrained temporal precedence, not a true causal-discovery algorithm. The next version will be a PC-algorithm-style constrained search over the same graph, plus a broader fault-type matrix beyond the single induced-latency case this demo covers.

@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Self-Healing Infra — Incident Demo</title></head>
+<body style="font-family: system-ui; max-width: 640px; margin: 2rem auto;">
+  <h1>Incident Summary</h1>
+  <div id="out">Loading…</div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const base = params.get("url"); // the Function URL from §4's handler
+    const incidentId = params.get("incidentId");
+    fetch(`${base}?incidentId=${incidentId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        document.getElementById("out").innerHTML = `
+          <p><b>Status:</b> ${data.META?.status}</p>
+          <p><b>Root cause:</b> ${data.DIAGNOSIS?.rootCauseService}</p>
+          <p><b>Diagnosis:</b> ${data.DIAGNOSIS?.summary}</p>
+          <p><b>Confidence:</b> ${data.DIAGNOSIS?.confidence}</p>
+          <p><b>Approved:</b> ${data.APPROVAL?.status}</p>
+          <p><b>Recovered:</b> ${data.VERIFICATION?.recovered}</p>
+        `;
+      })
+      .catch((e) => (document.getElementById("out").textContent = "Error: " + e));
+  </script>
+</body>
+</html>

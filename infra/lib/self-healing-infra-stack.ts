@@ -12,7 +12,7 @@ export class SelfHealingInfraStack extends Stack {
 
     const tables = createTables(this);
     const lambdas = createLambdas(this, tables);
-    createApi(this, lambdas.gatewayFn, lambdas.armDemoFn, lambdas.getIncidentFn, lambdas.listIncidentsFn);
+    const api = createApi(this, lambdas.gatewayFn, lambdas.armDemoFn, lambdas.getIncidentFn, lambdas.listIncidentsFn);
 
     const stateMachine = createIncidentResponseStateMachine(this, {
       createIncidentFn: lambdas.createIncidentFn,
@@ -26,5 +26,6 @@ export class SelfHealingInfraStack extends Stack {
     createInventoryAlarmAndRule(this, lambdas.inventoryFn, stateMachine);
 
     new CfnOutput(this, "ApproveFunctionUrl", { value: lambdas.approveHandlerUrl });
+    new CfnOutput(this, "ApiUrl", { value: api.url });
   }
 }

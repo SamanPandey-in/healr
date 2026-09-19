@@ -19,6 +19,8 @@ async function pollUntilUpdated(functionName: string, tries = 15): Promise<void>
 }
 
 export async function handler() {
+  if (!env.inventoryFunctionName) throw new Error("Missing INVENTORY_FUNCTION_NAME");
+
   const now = Math.floor(Date.now() / 1000);
   try {
     await ddb.send(new PutCommand({

@@ -15,6 +15,6 @@ export const env = {
   faultMode: (process.env.FAULT_MODE ?? "error") as "error" | "latency",
   bedrockModelId: process.env.BEDROCK_MODEL_ID ?? "qwen.qwen3-235b-a22b-2507-v1:0",
   approveFunctionUrl: process.env.APPROVE_FUNCTION_URL ?? "",
-  inventoryFunctionName: process.env.INVENTORY_FUNCTION_NAME ?? "",
+  inventoryFunctionName: required("INVENTORY_FUNCTION_NAME"),
   inventoryAliasName: process.env.INVENTORY_ALIAS_NAME ?? "live",
 };

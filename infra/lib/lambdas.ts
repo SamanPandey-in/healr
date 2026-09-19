@@ -153,6 +153,39 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     resources: ["*"],
   }));
 
+  // ------------------------------------------------------- demo (plan5)
+
+  const armDemoFn = new NodejsFunction(scope, "ArmDemoFunction", {
+    entry: "../server/src/features/demo/armDemoHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    timeout: Duration.seconds(30),
+    environment: { ...commonEnv, INVENTORY_FUNCTION_NAME: inventoryFn.functionName,
+      INVENTORY_ALIAS_NAME: inventoryAlias.aliasName },
+    bundling: xrayBundling,
+  });
+  armDemoFn.addToRolePolicy(new PolicyStatement({
+    actions: ["lambda:UpdateFunctionConfiguration", "lambda:GetFunctionConfiguration",
+              "lambda:PublishVersion", "lambda:UpdateAlias"],
+    resources: [inventoryFn.functionArn, `${inventoryFn.functionArn}:*`],
+  }));
+
+  const getIncidentFn = new NodejsFunction(scope, "GetIncidentFunction", {
+    entry: "../server/src/features/incidents/getIncidentHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+
+  const listIncidentsFn = new NodejsFunction(scope, "ListIncidentsFunction", {
+    entry: "../server/src/features/incidents/listIncidentsHandler.ts",
+    runtime: Runtime.NODEJS_20_X,
+    tracing: Tracing.ACTIVE,
+    environment: commonEnv,
+    bundling: xrayBundling,
+  });
+
   // ---------------------------------------------------------- grants
 
   tables.serviceGraph.grantReadWriteData(gatewayFn);
@@ -167,6 +200,9 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
   tables.incidents.grantReadWriteData(approveHandlerFn);
   tables.incidents.grantReadWriteData(remediateFn);
   tables.incidents.grantReadWriteData(verifyOutcomeFn);
+  tables.incidents.grantReadWriteData(armDemoFn);
+  tables.incidents.grantReadData(getIncidentFn);
+  tables.incidents.grantReadData(listIncidentsFn);
 
   buildGraphFn.addToRolePolicy(new PolicyStatement({
     actions: ["xray:GetTraceSummaries", "xray:BatchGetTraces"],
@@ -177,6 +213,7 @@ export function createLambdas(scope: Construct, tables: LambdasProps) {
     gatewayFn, ordersFn, inventoryFn, deployEventsWebhookFn,
     createIncidentFn, buildGraphFn, localizeFn,
     diagnoseFn, requestApprovalFn, approveHandlerFn, remediateFn, verifyOutcomeFn,
+    armDemoFn, getIncidentFn, listIncidentsFn,
     approveHandlerUrl: approveHandlerUrl.url,
   };
 }

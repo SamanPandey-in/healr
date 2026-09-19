@@ -18,6 +18,8 @@
     "server",
     "infra",
     "web",
-    "packages/shared-types"
+    "packages/shared-types",
+    "packages/cdk-self-healing",
+    "packages/agent"
   ]
 }

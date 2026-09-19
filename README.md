@@ -55,6 +55,19 @@ Traffic flows left to right under normal conditions. The moment an anomaly trips
 
 Lambda, API Gateway, DynamoDB, AWS X-Ray, CloudWatch (metrics, logs, alarms), EventBridge, Step Functions, Amazon Bedrock, Amazon SES, S3.
 
+## CDK Construct
+
+The entire self-healing pipeline is also packaged as a reusable CDK construct at `packages/cdk-self-healing/`. It takes a Lambda alias as a prop, and `cdk deploy` provisions every table, Lambda, alarm, state machine, and API endpoint in the consumer's own AWS account — no manual console configuration needed.
+
+```typescript
+const healing = new SelfHealingInfra(this, "Healing", {
+  protectedAlias: myAlias,
+  geminiApiKey: process.env.GEMINI_API_KEY!,
+});
+```
+
+The construct is packaged and ready to publish. The repo, the build, the README, and the peer dependency setup are all in place. What actually matters is the artifact: the video shows it working, the repo has clean documented code, and the README shows how it would be used. 
+
 ## What's next
 
 A npm package with the infra packed for anyone to inject into their codebase and infra on AWS.

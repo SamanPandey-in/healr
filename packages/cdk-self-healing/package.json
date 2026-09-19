@@ -1,0 +1,28 @@
+{
+  "name": "@shi/cdk-self-healing",
+  "version": "0.1.0",
+  "description": "Drop-in causal-RCA self-healing infra for any CDK-managed Lambda function.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/handlers"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "^2.269.0",
+    "constructs": "^10.5.0"
+  },
+  "devDependencies": {
+    "aws-cdk-lib": "^2.269.0",
+    "constructs": "^10.5.0",
+    "typescript": "~5.7.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,15 +1,11 @@
-// server/src/features/incidents/getIncidentHandler.ts
 import { APIGatewayProxyEventV2 } from "aws-lambda";
-import { getIncident } from "./incidentsRepository";
+import { getFullIncident } from "./incidentsRepository";
+import { ok, fail } from "../../shared/http/responses";
 
 export async function handler(event: APIGatewayProxyEventV2) {
-  const incidentId = event.queryStringParameters?.incidentId;
-  if (!incidentId) return { statusCode: 400, body: "Missing incidentId" };
-  const incident = await getIncident(incidentId);
-  if (!incident) return { statusCode: 404, body: "Incident not found" };
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    body: JSON.stringify(incident),
-  };
+  const incidentId = event.pathParameters?.id;
+  if (!incidentId) return fail(400, "Missing incident id");
+  const incident = await getFullIncident(incidentId);
+  if (!incident.META) return fail(404, "Incident not found");
+  return ok(incident);
 }

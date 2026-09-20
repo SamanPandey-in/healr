@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { PutCommand, GetCommand, UpdateCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { ddb } from "../../shared/aws/dynamoClient";
 import { env } from "../../config/env";
 import { Incident, LocalizationResult, DiagnosisResult, RemediationResult, VerificationResult, ServiceName } from "@shi/shared-types";
@@ -54,6 +54,15 @@ export async function getIncident(incidentId: string): Promise<Record<string, un
   return res.Item;
 }
 
+export async function getFullIncident(incidentId: string): Promise<Record<string, unknown>> {
+  const res = await ddb.send(new QueryCommand({
+    TableName: env.incidentsTable,
+    KeyConditionExpression: "PK = :pk",
+    ExpressionAttributeValues: { ":pk": `INCIDENT#${incidentId}` },
+  }));
+  return Object.fromEntries((res.Items ?? []).map((i) => [i.SK, i]));
+}
+
 export async function saveDiagnosis(diagnosis: DiagnosisResult): Promise<void> {
   await ddb.send(new PutCommand({
     TableName: env.incidentsTable,
@@ -73,6 +82,8 @@ export async function saveApproval(record: {
   taskToken: string;
   status: "pending";
   diagnosis: DiagnosisResult;
+  approveLink?: string;
+  denyLink?: string;
 }): Promise<void> {
   await ddb.send(new PutCommand({
     TableName: env.incidentsTable,

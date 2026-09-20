@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from "aws-lambda";
 
-const ALLOWED_ORIGINS = ["https://builds.samanp.xyz", "http://localhost:3000"];
+const ALLOWED_ORIGINS = ["https://healr.samanp.xyz", "http://localhost:3000"];
 
 function corsHeaders(origin?: string) {
   const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];

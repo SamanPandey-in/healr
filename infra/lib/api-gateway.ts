@@ -8,7 +8,7 @@ export function createApi(scope: Construct, gatewayFn: IFunction, armDemoFn: IFu
     restApiName: "self-healing-infra-api",
     deployOptions: { tracingEnabled: true },
     defaultCorsPreflightOptions: {
-      allowOrigins: ["https://builds.samanp.xyz", "http://localhost:3000"],
+      allowOrigins: ["https://healr.samanp.xyz", "http://localhost:3000"],
       allowMethods: Cors.ALL_METHODS,
     },
   });

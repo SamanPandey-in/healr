@@ -191,7 +191,7 @@ This isn't causal discovery. It's a principled heuristic that catches the most c
 
 ## Resources
 
-- **Repo:** [github.com/SamanPandey-in/builds](https://github.com/SamanPandey-in/builds)
+- **Repo:** [github.com/SamanPandey-in/healr](https://github.com/SamanPandey-in/healr)
 - **Migration docs:** `docs/gemini-migartion.md` — full before/after of the Bedrock→Gemini swap
 - **Test evidence:** `docs/TEST_DAY3_2.md` — 17/17 checklist items passed, end-to-end
 - **Roadmap:** `docs/ROADMAP (1).md` — day-by-day execution plan and scoring criteria

@@ -1,5 +1,5 @@
 {
-  "name": "builds",
+  "name": "healr",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github-saman:SamanPandey-in/builds.git"
+    "url": "git@github-saman:SamanPandey-in/healr.git"
   },
   "keywords": [],
   "author": "",

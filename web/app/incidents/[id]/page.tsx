@@ -1,96 +1,143 @@
 "use client";
-import { useEffect, useState } from "react";
-import { getIncident } from "@/lib/api";
+import { use, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { getExecution, getIncident } from "@/lib/api";
+import { usePoll, useNow } from "@/lib/usePoll";
+import { computeMetrics, deriveSteps, displayStatus, mergeSteps } from "@/lib/pipeline";
+import { ago, fmtClock, fmtDuration } from "@/lib/format";
+import { TopBar } from "@/components/TopBar";
+import { StatusPill } from "@/components/StatusPill";
+import { MetricsStrip } from "@/components/MetricsStrip";
+import { PipelineTimeline } from "@/components/PipelineTimeline";
+import { ApprovalPanel } from "@/components/ApprovalPanel";
+import { DiagnosisPanel } from "@/components/DiagnosisPanel";
+import { ServiceMap } from "@/components/ServiceMap";
+import { OutcomePanel } from "@/components/OutcomePanel";
+import { EventLog } from "@/components/EventLog";
+import { Icon } from "@/components/Icon";
 
 export default function IncidentPage({ params }: { params: Promise<{ id: string }> }) {
-  const [incident, setIncident] = useState<any>(null);
-  const [id, setId] = useState("");
+  const { id: rawId } = use(params);
+  const id = rawId ?? "";
+  const [finished, setFinished] = useState(false);
 
+  const execPoll = usePoll(() => getExecution(id), 1500, !finished && !!id);
+  const incPoll = usePoll(() => getIncident(id), 2000, !finished && !!id);
+  const exec = execPoll.data ?? undefined;
+  const incident = incPoll.data ?? undefined;
+
+  // Stop polling once the execution reaches a terminal state, after one last fetch of the rows.
+  const execStatus = exec?.status;
+  const closed = incident?.META?.status === "closed";
+  const { refresh } = incPoll;
   useEffect(() => {
-    params.then((p) => {
-      setId(p.id);
-      getIncident(p.id).then(setIncident).catch(() => {});
-    });
-  }, [params]);
+    if ((execStatus && execStatus !== "RUNNING") || (!execStatus && closed)) {
+      refresh();
+      setFinished(true);
+    }
+  }, [execStatus, closed, refresh]);
 
-  useEffect(() => {
-    if (!id) return;
-    const poll = setInterval(() => {
-      getIncident(id).then(setIncident).catch(() => {});
-    }, 3000);
-    return () => clearInterval(poll);
-  }, [id]);
+  const now = useNow(!finished, 1000);
+  const steps = useMemo(
+    () => mergeSteps(exec?.steps ?? (incident ? deriveSteps(incident) : [])),
+    [exec, incident]
+  );
 
-  if (!incident) return <p style={{ padding: "2rem" }}>Loading...</p>;
+  if (incPoll.data === null) {
+    return (
+      <main className="shell">
+        <TopBar />
+        <div className="card empty"><h2>Incident not found</h2><Link href="/" className="btn btn-primary">Back to dashboard</Link></div>
+      </main>
+    );
+  }
+  if (!incident) {
+    return (
+      <main className="shell">
+        <TopBar />
+        <div className="card empty">
+          {incPoll.error ? <><h2>Can’t reach the API</h2><p className="dim">{incPoll.error}</p></> : <><span className="spinner spinner-lg" /><p className="dim">Loading incident…</p></>}
+        </div>
+      </main>
+    );
+  }
 
   const meta = incident.META;
-  const diagnosis = incident.DIAGNOSIS;
-  const approval = incident.APPROVAL;
-  const remediation = incident.REMEDIATION;
-  const verification = incident.VERIFICATION;
+  const status = displayStatus(incident, exec);
+  const approvalStep = steps.find((s) => s.name === "RequestApproval");
+  const recovered = closed && incident.VERIFICATION?.recovered;
+  const stale = !!incPoll.error;
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "2rem 1rem" }}>
-      <a href="/" style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.9rem" }}>&larr; Back</a>
-      <h1>Incident</h1>
-      <p style={{ fontSize: "0.85rem", color: "#888", fontFamily: "monospace" }}>{id}</p>
+    <main className="shell">
+      <TopBar>
+        <span className={`live ${finished ? "live-off" : stale ? "live-warn" : ""}`}>
+          <span className="dot dot-pulse" />
+          {finished ? "Run finished" : stale ? "Reconnecting…" : "Live"}
+        </span>
+      </TopBar>
 
-      <div style={{ margin: "1.5rem 0", padding: "1rem", background: "#f9fafb", borderRadius: 8 }}>
-        <p><strong>Status:</strong> {meta?.status ?? "unknown"}</p>
-        <p><strong>Service:</strong> {meta?.service}</p>
-        <p><strong>Alarm:</strong> {meta?.alarmName}</p>
-        <p><strong>Detected:</strong> {meta?.detectedAt}</p>
+      <div className="page-head">
+        <div>
+          <Link href="/" className="back">← All incidents</Link>
+          <h1>Incident <code className="id">{String(id ?? "").slice(0, 8) || "—"}</code></h1>
+          <p className="dim">
+            <strong>{meta?.alarmName}</strong> on <strong>{meta?.service}</strong> · detected {fmtClock(meta?.detectedAt)} ({ago(meta?.detectedAt, now)})
+          </p>
+        </div>
+        <StatusPill label={status.label} tone={status.tone} pulse={!finished} />
       </div>
 
-      {diagnosis && (
-        <section style={{ margin: "1.5rem 0" }}>
-          <h2>Diagnosis (Gemini)</h2>
-          <p style={{ lineHeight: 1.6 }}>{diagnosis.summary}</p>
-          <p><strong>Root cause:</strong> {diagnosis.rootCauseService} (confidence: {diagnosis.confidence})</p>
-          <p><strong>Cited evidence:</strong></p>
-          <ul>
-            {diagnosis.citedEvidenceIds?.map((id: string) => (
-              <li key={id} style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>{id}</li>
-            ))}
-          </ul>
-        </section>
+      {recovered && (
+        <div className="banner banner-green">
+          <Icon name="check" size={18} />
+          <div>
+            <strong>Self-healed.</strong> Detected, diagnosed with cited evidence, approved by a human, rolled back and verified —{" "}
+            {fmtDuration(computeMetrics(incident, steps, now).at(-1)?.value)} from alarm to recovery.
+          </div>
+        </div>
       )}
 
-      {meta?.status === "diagnosed" && approval?.approveLink && (
-        <section style={{ margin: "1.5rem 0" }}>
-          <a
-            href={approval.approveLink}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: "inline-block",
-              padding: "0.6rem 1.4rem",
-              background: "#16a34a",
-              color: "#fff",
-              borderRadius: 6,
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Approve remediation
-          </a>
-        </section>
-      )}
+      <MetricsStrip metrics={computeMetrics(incident, steps, now)} />
 
-      {remediation && (
-        <section style={{ margin: "1.5rem 0" }}>
-          <h2>Remediation</h2>
-          <p>Reverted from version {remediation.revertedFromVersion} to {remediation.revertedToVersion}</p>
-        </section>
-      )}
+      <div className="source">
+        {exec ? (
+          <>
+            <span className="tag tag-green">Live from Step Functions</span>
+            <span className="mono dim">{exec.name}</span>
+            <span className={`tag ${exec.status === "RUNNING" ? "tag-blue" : exec.status === "SUCCEEDED" ? "tag-green" : "tag-red"}`}>{exec.status}</span>
+            <a className="ext" href={exec.consoleUrl} target="_blank" rel="noreferrer">Open in AWS console <Icon name="external" size={12} /></a>
+          </>
+        ) : (
+          <>
+            <span className="tag tag-amber">DynamoDB view</span>
+            <span className="dim small">
+              Step Functions history isn’t available{execPoll.error ? ` (${execPoll.error})` : ""} — progress is reconstructed from stored records.
+            </span>
+          </>
+        )}
+      </div>
 
-      {verification && (
-        <section style={{ margin: "1.5rem 0" }}>
-          <h2>Verification</h2>
-          <p>Recovered: {verification.recovered ? "Yes" : "No"}</p>
-          <p>Faults before: {verification.faultCountBefore} | after: {verification.faultCountAfter}</p>
+      <div className="grid-2">
+        <section>
+          <h2 className="section-title">Step Functions pipeline <span className="dim small">· click a step to inspect its input and output</span></h2>
+          <PipelineTimeline steps={steps} />
         </section>
-      )}
+        <aside className="stack">
+          <ApprovalPanel
+            incidentId={id}
+            approval={incident.APPROVAL}
+            approvalStep={approvalStep}
+            rootCause={incident.DIAGNOSIS?.rootCauseService}
+            onDecided={() => { incPoll.refresh(); execPoll.refresh(); }}
+          />
+          <DiagnosisPanel incident={incident} />
+          <ServiceMap incident={incident} />
+          <OutcomePanel incident={incident} />
+        </aside>
+      </div>
+
+      {exec && <EventLog events={exec.events} />}
     </main>
   );
 }

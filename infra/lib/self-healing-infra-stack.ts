@@ -5,6 +5,7 @@ import { createLambdas } from "./lambdas";
 import { createApi } from "./api-gateway";
 import { createIncidentResponseStateMachine } from "./step-functions";
 import { createInventoryAlarmAndRule } from "./alarms";
+import { createObservability } from "./observability";
 
 export class SelfHealingInfraStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -24,6 +25,7 @@ export class SelfHealingInfraStack extends Stack {
       verifyOutcomeFn: lambdas.verifyOutcomeFn,
     });
     createInventoryAlarmAndRule(this, lambdas.inventoryFn, stateMachine);
+    createObservability(this, { api, stateMachine, tables });
 
     new CfnOutput(this, "ApproveFunctionUrl", { value: lambdas.approveHandlerUrl });
     new CfnOutput(this, "ApiUrl", { value: api.url });

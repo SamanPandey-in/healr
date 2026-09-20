@@ -1,3 +1,4 @@
+import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { LambdaClient, UpdateFunctionConfigurationCommand, GetFunctionConfigurationCommand,
          PublishVersionCommand, UpdateAliasCommand } from "@aws-sdk/client-lambda";
 import { PutCommand } from "@aws-sdk/lib-dynamodb";
@@ -18,7 +19,8 @@ async function pollUntilUpdated(functionName: string, tries = 15): Promise<void>
   throw new Error("Timed out waiting for Lambda config update to settle");
 }
 
-export async function handler() {
+export async function handler(event: APIGatewayProxyEventV2) {
+  const origin = event.headers?.origin ?? event.headers?.Origin;
   if (!env.inventoryFunctionName) throw new Error("Missing INVENTORY_FUNCTION_NAME");
 
   const now = Math.floor(Date.now() / 1000);
@@ -30,7 +32,7 @@ export async function handler() {
       ExpressionAttributeValues: { ":now": now },
     }));
   } catch {
-    return fail(409, "A demo is already running — wait a couple of minutes and try again.");
+    return fail(409, "A demo is already running — wait a couple of minutes and try again.", origin);
   }
 
   await lambda.send(new UpdateFunctionConfigurationCommand({
@@ -48,5 +50,5 @@ export async function handler() {
     FunctionVersion: published.Version,
   }));
 
-  return ok({ armed: true, version: published.Version });
+  return ok({ armed: true, version: published.Version }, origin);
 }

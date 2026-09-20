@@ -6,6 +6,7 @@ import { env } from "../../config/env";
 patchAwsSdkForTracing();
 
 export async function handler(event: APIGatewayProxyEventV2, _context: Context) {
+  const origin = event.headers?.origin ?? event.headers?.Origin;
   try {
     const body = JSON.parse(event.body ?? "{}");
 
@@ -19,8 +20,8 @@ export async function handler(event: APIGatewayProxyEventV2, _context: Context) 
       return res.json();
     });
 
-    return ok(orderResult);
+    return ok(orderResult, origin);
   } catch (err) {
-    return fail(502, (err as Error).message);
+    return fail(502, (err as Error).message, origin);
   }
 }

@@ -5,8 +5,9 @@ import { env } from "../../config/env";
 import { ok, fail } from "../../shared/http/responses";
 
 export async function handler(event: APIGatewayProxyEventV2) {
+  const origin = event.headers?.origin ?? event.headers?.Origin;
   const incidentId = event.pathParameters?.id;
-  if (!incidentId) return fail(400, "Missing incident id");
+  if (!incidentId) return fail(400, "Missing incident id", origin);
 
   const res = await ddb.send(new QueryCommand({
     TableName: env.incidentsTable,
@@ -14,6 +15,6 @@ export async function handler(event: APIGatewayProxyEventV2) {
     ExpressionAttributeValues: { ":pk": "INCIDENT#" + incidentId },
   }));
   const bySk = Object.fromEntries((res.Items ?? []).map((i) => [i.SK, i]));
-  if (!bySk.META) return fail(404, "Incident not found");
-  return ok(bySk);
+  if (!bySk.META) return fail(404, "Incident not found", origin);
+  return ok(bySk, origin);
 }
